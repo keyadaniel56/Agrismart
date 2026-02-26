@@ -8,7 +8,7 @@ import {
 } from './Icons'
 import { useAuth } from '../contexts/AuthContext'
 import { useNotifications } from '../contexts/NotificationContext'
-import { Modal, Button, FormGroup, Input, Card } from './UI'
+import { Modal, Button, FormGroup, Input, Card, FormRow } from './UI'
 
 const NAV = [
   { to: '/',           label: 'Dashboard',     Icon: IconDashboard },
@@ -33,21 +33,41 @@ const PAGE_TITLES = {
 export default function Layout({ children, isOnline }) {
   const { pathname } = useLocation()
   const page = PAGE_TITLES[pathname] || { title: 'AgriSmart', sub: '' }
-  const { user, login, logout } = useAuth()
-  const { notifications, unreadCount, markAsRead } = useNotifications()
+  const { user, login, register, logout } = useAuth()
+  const { notifications, unreadCount, markAsRead, addNotification } = useNotifications()
 
   const [showAuthModal, setShowAuthModal] = useState(false)
+  const [authMode, setAuthMode] = useState('login') // 'login' or 'signup'
   const [showNotifModal, setShowNotifModal] = useState(false)
   const [showProfileModal, setShowProfileModal] = useState(false)
 
-  const [loginEmail, setLoginEmail] = useState('')
-  const [loginPass, setLoginPass] = useState('')
+  const [authForm, setAuthForm] = useState({
+    email: '', password: '', name: '', farmName: '', county: 'Kiambu'
+  })
+  const [authError, setAuthError] = useState('')
 
-  const handleLogin = (e) => {
+  const handleAuth = async (e) => {
     e.preventDefault()
-    // Simulated login
-    login({ name: 'John Kamau', email: loginEmail, initials: 'JK' })
-    setShowAuthModal(false)
+    setAuthError('')
+    
+    if (authMode === 'login') {
+      const res = await login(authForm.email, authForm.password)
+      if (res.success) {
+        setShowAuthModal(false)
+        addNotification({ title: 'Welcome back!', message: `Logged in as ${authForm.email}` })
+      } else {
+        setAuthError(res.message)
+      }
+    } else {
+      const initials = authForm.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+      const res = await register({ ...authForm, initials })
+      if (res.success) {
+        setShowAuthModal(false)
+        addNotification({ title: 'Account Created', message: 'Welcome to AgriSmart!' })
+      } else {
+        setAuthError(res.message)
+      }
+    }
   }
 
   const mainNav    = NAV.filter(n => !n.section)
@@ -68,8 +88,8 @@ export default function Layout({ children, isOnline }) {
 
         <div className={styles.farmCard}>
           <div className={styles.farmCardLabel}>Active Farm</div>
-          <div className={styles.farmCardName}>{user ? `${user.name.split(' ')[1]}'s Shamba` : 'Guest Farm'}</div>
-          <div className={styles.farmCardMeta}>Kiambu County &mdash; 12.5 acres</div>
+          <div className={styles.farmCardName}>{user ? (user.farmName || `${user.name.split(' ')[0]}'s Shamba`) : 'Guest Farm'}</div>
+          <div className={styles.farmCardMeta}>{user ? (user.county || 'Kiambu County') : 'Offline'} &mdash; 12.5 acres</div>
         </div>
 
         <nav className={styles.nav}>
@@ -128,7 +148,7 @@ export default function Layout({ children, isOnline }) {
                 {user.initials}
               </div>
             ) : (
-              <Button size="sm" onClick={() => setShowAuthModal(true)}>Login</Button>
+              <Button size="sm" onClick={() => { setAuthMode('login'); setShowAuthModal(true); }}>Login</Button>
             )}
           </div>
         </header>
@@ -164,15 +184,45 @@ export default function Layout({ children, isOnline }) {
 
       {/* ── MODALS ── */}
       {showAuthModal && (
-        <Modal title="Login to AgriSmart" onClose={() => setShowAuthModal(false)}>
-          <form onSubmit={handleLogin}>
+        <Modal title={authMode === 'login' ? "Login to AgriSmart" : "Create Account"} onClose={() => setShowAuthModal(false)}>
+          <form onSubmit={handleAuth}>
+            {authError && <div style={{ color: 'var(--danger)', marginBottom: '1rem', fontSize: '0.9rem' }}>{authError}</div>}
+            
+            {authMode === 'signup' && (
+              <>
+                <FormGroup label="Full Name">
+                  <Input 
+                    placeholder="John Doe" required 
+                    value={authForm.name}
+                    onChange={(e) => setAuthForm({...authForm, name: e.target.value})}
+                  />
+                </FormGroup>
+                <FormRow>
+                  <FormGroup label="Farm Name">
+                    <Input 
+                      placeholder="Green Valley" 
+                      value={authForm.farmName}
+                      onChange={(e) => setAuthForm({...authForm, farmName: e.target.value})}
+                    />
+                  </FormGroup>
+                  <FormGroup label="County">
+                    <Input 
+                      placeholder="Kiambu" 
+                      value={authForm.county}
+                      onChange={(e) => setAuthForm({...authForm, county: e.target.value})}
+                    />
+                  </FormGroup>
+                </FormRow>
+              </>
+            )}
+
             <FormGroup label="Email Address">
               <Input 
                 type="email" 
                 placeholder="john@example.com" 
                 required 
-                value={loginEmail}
-                onChange={(e) => setLoginEmail(e.target.value)}
+                value={authForm.email}
+                onChange={(e) => setAuthForm({...authForm, email: e.target.value})}
               />
             </FormGroup>
             <FormGroup label="Password">
@@ -180,11 +230,22 @@ export default function Layout({ children, isOnline }) {
                 type="password" 
                 placeholder="••••••••" 
                 required 
-                value={loginPass}
-                onChange={(e) => setLoginPass(e.target.value)}
+                value={authForm.password}
+                onChange={(e) => setAuthForm({...authForm, password: e.target.value})}
               />
             </FormGroup>
-            <Button type="submit" style={{ width: '100%', marginTop: '1rem' }}>Login</Button>
+            
+            <Button type="submit" style={{ width: '100%', marginTop: '1rem' }}>
+              {authMode === 'login' ? 'Login' : 'Sign Up'}
+            </Button>
+            
+            <div style={{ textAlign: 'center', marginTop: '1rem', fontSize: '0.9rem', color: 'var(--clay)' }}>
+              {authMode === 'login' ? (
+                <>Don't have an account? <a href="#" onClick={(e) => { e.preventDefault(); setAuthMode('signup'); }} style={{ color: 'var(--leaf)', fontWeight: 600 }}>Sign Up</a></>
+              ) : (
+                <>Already have an account? <a href="#" onClick={(e) => { e.preventDefault(); setAuthMode('login'); }} style={{ color: 'var(--leaf)', fontWeight: 600 }}>Login</a></>
+              )}
+            </div>
           </form>
         </Modal>
       )}
@@ -197,6 +258,8 @@ export default function Layout({ children, isOnline }) {
             </div>
             <h3 style={{ margin: 0 }}>{user.name}</h3>
             <p style={{ color: 'var(--clay)', fontSize: '0.9rem' }}>{user.email}</p>
+            <p style={{ margin: '0.5rem 0 0', fontWeight: 500, color: 'var(--leaf)' }}>{user.farmName || 'Independent Farmer'}</p>
+            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--clay)' }}>{user.county || 'Kiambu'}, Kenya</p>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
             <Button variant="secondary" onClick={() => setShowProfileModal(false)}>

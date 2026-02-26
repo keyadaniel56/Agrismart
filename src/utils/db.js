@@ -20,6 +20,9 @@ export function initDB() {
       if (!db.objectStoreNames.contains('orders')) {
         db.createObjectStore('orders', { keyPath: 'id' })
       }
+      if (!db.objectStoreNames.contains('users')) {
+        db.createObjectStore('users', { keyPath: 'email' })
+      }
     }
 
     request.onsuccess = (event) => resolve(event.target.result)
@@ -33,6 +36,17 @@ export async function getAll(storeName) {
     const transaction = db.transaction(storeName, 'readonly')
     const store = transaction.objectStore(storeName)
     const request = store.getAll()
+    request.onsuccess = () => resolve(request.result)
+    request.onerror = () => reject(request.error)
+  })
+}
+
+export async function get(storeName, key) {
+  const db = await initDB()
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(storeName, 'readonly')
+    const store = transaction.objectStore(storeName)
+    const request = store.get(key)
     request.onsuccess = () => resolve(request.result)
     request.onerror = () => reject(request.error)
   })
