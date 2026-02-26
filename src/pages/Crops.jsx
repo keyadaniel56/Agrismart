@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { STAGES, fmt, fmtDate } from '../utils/data'
-import { Tabs, Button, Badge, Panel, ProgressBar, Modal, FormGroup, Input, Select, FormRow } from '../components/UI'
+import { Tabs, Button, Badge, Panel, ProgressBar, Modal, FormGroup, Input, Select, FormRow, Table } from '../components/UI'
 import { IconPlus } from '../components/Icons'
 import { useLocalData } from '../hooks'
 import { useNotifications } from '../contexts/NotificationContext'
@@ -12,6 +12,7 @@ export default function Crops() {
   const [filter, setFilter] = useState('all')
   const [addOpen, setAddOpen] = useState(false)
   const [updateModal, setUpdateModal] = useState(null)
+  const [detailsModal, setDetailsModal] = useState(null)
 
   const FILTER_TABS = [
     { value: 'all',       label: 'All',       count: crops.length },
@@ -58,6 +59,7 @@ export default function Crops() {
             key={crop.id} 
             crop={crop} 
             onUpdate={() => setUpdateModal(crop)}
+            onViewDetails={() => setDetailsModal(crop)}
           />
         ))}
       </div>
@@ -71,11 +73,18 @@ export default function Crops() {
           onConfirm={handleUpdateCrop} 
         />
       )}
+
+      {detailsModal && (
+        <CropDetailsModal 
+          crop={detailsModal} 
+          onClose={() => setDetailsModal(null)} 
+        />
+      )}
     </div>
   )
 }
 
-function CropCard({ crop, onUpdate }) {
+function CropCard({ crop, onUpdate, onViewDetails }) {
   const totalInput = crop.inputs ? crop.inputs.reduce((s, i) => s + i.cost, 0) : 0
 
   return (
@@ -127,17 +136,78 @@ function CropCard({ crop, onUpdate }) {
         )}
 
         <div className={styles.inputList}>
-          {crop.inputs && crop.inputs.map((inp, i) => (
+          {crop.inputs && crop.inputs.slice(0, 3).map((inp, i) => (
             <span key={i} className={styles.inputTag}>{inp.type}</span>
           ))}
+          {crop.inputs && crop.inputs.length > 3 && (
+            <span className={styles.inputTag}>+{crop.inputs.length - 3} more</span>
+          )}
         </div>
 
         <div className={styles.cardActions}>
-          <Button variant="outline" size="sm">View Details</Button>
+          <Button variant="outline" size="sm" onClick={onViewDetails}>View Details</Button>
           <Button variant="primary" size="sm" onClick={onUpdate}>Log Update</Button>
         </div>
       </div>
     </div>
+  )
+}
+
+function CropDetailsModal({ crop, onClose }) {
+  const totalInput = crop.inputs ? crop.inputs.reduce((s, i) => s + i.cost, 0) : 0
+
+  return (
+    <Modal title={`Crop Details: ${crop.name}`} onClose={onClose} width={600}>
+      <div className={styles.detailsContent}>
+        <div className={styles.detailsHeader}>
+          <div className={styles.detailsMeta}>
+            <div className={styles.metaItem}>
+              <span className={styles.metaLabel}>Status:</span>
+              <Badge variant={crop.status.toLowerCase()}>{crop.status}</Badge>
+            </div>
+            <div className={styles.metaItem}>
+              <span className={styles.metaLabel}>Acreage:</span>
+              <span className={styles.metaValue}>{crop.acreage} acres</span>
+            </div>
+            <div className={styles.metaItem}>
+              <span className={styles.metaLabel}>Planting Date:</span>
+              <span className={styles.metaValue}>{fmtDate(crop.plantDate)}</span>
+            </div>
+            <div className={styles.metaItem}>
+              <span className={styles.metaLabel}>Exp. Harvest:</span>
+              <span className={styles.metaValue}>{fmtDate(crop.harvestDate)}</span>
+            </div>
+          </div>
+        </div>
+
+        <h4 className={styles.sectionTitle}>Financial Summary</h4>
+        <div className={styles.statsGrid}>
+          <Stat label="Input Cost" value={fmt(totalInput)} />
+          <Stat label="Exp. Revenue" value={fmt(crop.expectedYield * 50)} /> {/* Dummy price calculation */}
+          <Stat label="ROI" value={crop.roi ? `${crop.roi}%` : '—'} highlight={!!crop.roi} />
+        </div>
+
+        <h4 className={styles.sectionTitle}>Input Logs</h4>
+        {crop.inputs && crop.inputs.length > 0 ? (
+          <Table headers={['Type', 'Quantity', 'Cost', 'Date']}>
+            {crop.inputs.map((inp, i) => (
+              <tr key={i}>
+                <td>{inp.type}</td>
+                <td>{inp.qty}</td>
+                <td>{fmt(inp.cost)}</td>
+                <td>{fmtDate(inp.date)}</td>
+              </tr>
+            ))}
+          </Table>
+        ) : (
+          <p style={{ color: 'var(--clay)', textAlign: 'center', padding: '1rem' }}>No inputs recorded yet.</p>
+        )}
+
+        <div style={{ marginTop: '2rem' }}>
+          <Button variant="primary" style={{ width: '100%' }} onClick={onClose}>Close</Button>
+        </div>
+      </div>
+    </Modal>
   )
 }
 
