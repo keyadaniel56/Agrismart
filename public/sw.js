@@ -6,10 +6,13 @@ const STATIC_ASSETS = [
   '/index.html',
   '/manifest.json',
   '/icon.svg',
+  '/apple-touch-icon.png',
+  '/icons/icon-192.png',
+  '/icons/icon-512.png',
   '/src/main.jsx',
   '/src/App.jsx',
   '/src/styles/global.css',
-  '/@vite/client', // For Vite development
+  '/@vite/client',
 ];
 
 // Install: Cache the shell
