@@ -4,8 +4,11 @@ import styles from './Layout.module.css'
 import {
   IconDashboard, IconCrop, IconMoney, IconMarket,
   IconReport, IconFlask, IconSettings, IconBell,
-  IconSearch, IconWifi, IconWifiOff, IconCloud
+  IconSearch, IconWifi, IconWifiOff, IconCloud, IconUser, IconLogOut
 } from './Icons'
+import { useAuth } from '../contexts/AuthContext'
+import { useNotifications } from '../contexts/NotificationContext'
+import { Modal, Button, FormGroup, Input, Card } from './UI'
 
 const NAV = [
   { to: '/',           label: 'Dashboard',     Icon: IconDashboard },
@@ -30,6 +33,22 @@ const PAGE_TITLES = {
 export default function Layout({ children, isOnline }) {
   const { pathname } = useLocation()
   const page = PAGE_TITLES[pathname] || { title: 'AgriSmart', sub: '' }
+  const { user, login, logout } = useAuth()
+  const { notifications, unreadCount, markAsRead } = useNotifications()
+
+  const [showAuthModal, setShowAuthModal] = useState(false)
+  const [showNotifModal, setShowNotifModal] = useState(false)
+  const [showProfileModal, setShowProfileModal] = useState(false)
+
+  const [loginEmail, setLoginEmail] = useState('')
+  const [loginPass, setLoginPass] = useState('')
+
+  const handleLogin = (e) => {
+    e.preventDefault()
+    // Simulated login
+    login({ name: 'John Kamau', email: loginEmail, initials: 'JK' })
+    setShowAuthModal(false)
+  }
 
   const mainNav    = NAV.filter(n => !n.section)
   const toolsNav   = NAV.filter(n => n.section === 'tools')
@@ -49,7 +68,7 @@ export default function Layout({ children, isOnline }) {
 
         <div className={styles.farmCard}>
           <div className={styles.farmCardLabel}>Active Farm</div>
-          <div className={styles.farmCardName}>Kamau's Shamba</div>
+          <div className={styles.farmCardName}>{user ? `${user.name.split(' ')[1]}'s Shamba` : 'Guest Farm'}</div>
           <div className={styles.farmCardMeta}>Kiambu County &mdash; 12.5 acres</div>
         </div>
 
@@ -97,11 +116,20 @@ export default function Layout({ children, isOnline }) {
             >
               {isOnline ? <IconWifi size={16} /> : <IconWifiOff size={16} />}
             </div>
-            <button className={`${styles.iconBtn} ${styles.notifBtn}`}>
+            <button 
+              className={`${styles.iconBtn} ${styles.notifBtn}`}
+              onClick={() => setShowNotifModal(true)}
+            >
               <IconBell size={16} />
-              <span className={styles.notifDot} />
+              {unreadCount > 0 && <span className={styles.notifDot} />}
             </button>
-            <div className={styles.avatar}>JK</div>
+            {user ? (
+              <div className={styles.avatar} onClick={() => setShowProfileModal(true)}>
+                {user.initials}
+              </div>
+            ) : (
+              <Button size="sm" onClick={() => setShowAuthModal(true)}>Login</Button>
+            )}
           </div>
         </header>
 
@@ -133,6 +161,78 @@ export default function Layout({ children, isOnline }) {
           </NavLink>
         </nav>
       </div>
+
+      {/* ── MODALS ── */}
+      {showAuthModal && (
+        <Modal title="Login to AgriSmart" onClose={() => setShowAuthModal(false)}>
+          <form onSubmit={handleLogin}>
+            <FormGroup label="Email Address">
+              <Input 
+                type="email" 
+                placeholder="john@example.com" 
+                required 
+                value={loginEmail}
+                onChange={(e) => setLoginEmail(e.target.value)}
+              />
+            </FormGroup>
+            <FormGroup label="Password">
+              <Input 
+                type="password" 
+                placeholder="••••••••" 
+                required 
+                value={loginPass}
+                onChange={(e) => setLoginPass(e.target.value)}
+              />
+            </FormGroup>
+            <Button type="submit" style={{ width: '100%', marginTop: '1rem' }}>Login</Button>
+          </form>
+        </Modal>
+      )}
+
+      {showProfileModal && user && (
+        <Modal title="User Profile" onClose={() => setShowProfileModal(false)}>
+          <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+            <div className={styles.avatar} style={{ width: 64, height: 64, fontSize: 24, margin: '0 auto 1rem' }}>
+              {user.initials}
+            </div>
+            <h3 style={{ margin: 0 }}>{user.name}</h3>
+            <p style={{ color: 'var(--clay)', fontSize: '0.9rem' }}>{user.email}</p>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <Button variant="secondary" onClick={() => setShowProfileModal(false)}>
+              <IconUser size={16} style={{ marginRight: 8 }} /> Edit Profile
+            </Button>
+            <Button variant="secondary" onClick={() => { logout(); setShowProfileModal(false); }} style={{ color: 'var(--danger)' }}>
+              <IconLogOut size={16} style={{ marginRight: 8 }} /> Logout
+            </Button>
+          </div>
+        </Modal>
+      )}
+
+      {showNotifModal && (
+        <Modal title="Notifications" onClose={() => setShowNotifModal(false)}>
+          {notifications.length === 0 ? (
+            <p style={{ textAlign: 'center', color: 'var(--clay)' }}>No notifications</p>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              {notifications.map(n => (
+                <Card 
+                  key={n.id} 
+                  className={styles.notifCard} 
+                  onClick={() => { markAsRead(n.id); }}
+                  style={{ opacity: n.read ? 0.6 : 1, borderLeft: n.read ? 'none' : '4px solid var(--leaf)' }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
+                    <strong>{n.title}</strong>
+                    <span style={{ fontSize: '0.8rem', color: 'var(--clay)' }}>{n.date}</span>
+                  </div>
+                  <p style={{ margin: 0, fontSize: '0.9rem' }}>{n.message}</p>
+                </Card>
+              ))}
+            </div>
+          )}
+        </Modal>
+      )}
     </div>
   )
 }
@@ -145,7 +245,7 @@ function NavSection({ label, items }) {
         <NavLink
           key={to} to={to} end={to === '/'}
           className={({ isActive }) =>
-            `${styles.navItem} ${isActive ? styles['navItem--active'] : ''}`
+            `${styles.navItem} ${isActive ? styles['bottomNavItem--active'] : ''} ${isActive ? styles['navItem--active'] : ''}`
           }
         >
           <Icon size={17} />

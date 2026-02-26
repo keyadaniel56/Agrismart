@@ -3,21 +3,48 @@ import { fmt, fmtDate } from '../utils/data'
 import { Tabs, Button, Panel, Table, ProgressBar, Modal, FormGroup, Input, Select, FormRow } from '../components/UI'
 import { IconPlus, IconMapPin } from '../components/Icons'
 import { useLocalData } from '../hooks'
+import { useNotifications } from '../contexts/NotificationContext'
+import { useAuth } from '../contexts/AuthContext'
 import styles from './Marketplace.module.css'
 
 export default function Marketplace() {
   const { data: listings, add: addListing } = useLocalData('listings')
-  const { data: orders } = useLocalData('orders')
+  const { data: orders, add: addOrder } = useLocalData('orders')
   const { data: crops } = useLocalData('crops')
+  const { addNotification } = useNotifications()
+  const { user } = useAuth()
   
   const [tab, setTab]         = useState('listings')
   const [listOpen, setListOpen] = useState(false)
+  const [orderModal, setOrderModal] = useState(null)
 
   const TABS = [
     { value: 'listings',    label: 'All Listings',  count: listings.length },
     { value: 'my-listings', label: 'My Listings',   count: listings.filter(l => l.isOwner).length },
     { value: 'orders',      label: 'Orders',        count: orders.length },
   ]
+
+  const handlePlaceOrder = async (listing, qty) => {
+    const total = listing.pricePerKg * qty
+    const orderId = `ORD-${Math.floor(Math.random() * 900) + 100}`
+    
+    await addOrder({
+      id: orderId,
+      crop: listing.crop,
+      buyer: user ? user.name : 'Guest User',
+      qty: parseFloat(qty),
+      totalKsh: total,
+      status: 'pending',
+      date: new Date().toISOString().split('T')[0]
+    })
+
+    addNotification({
+      title: 'Order Placed',
+      message: `You have successfully placed an order for ${qty}kg of ${listing.crop} (${orderId}).`
+    })
+
+    setOrderModal(null)
+  }
 
   return (
     <div className={styles.page}>
@@ -32,13 +59,21 @@ export default function Marketplace() {
 
       {tab === 'listings' && (
         <div className={`${styles.grid} stagger`}>
-          {listings.map(l => <ListingCard key={l.id} listing={l} />)}
+          {listings.map(l => (
+            <ListingCard 
+              key={l.id} 
+              listing={l} 
+              onOrder={() => setOrderModal(l)}
+            />
+          ))}
         </div>
       )}
 
       {tab === 'my-listings' && (
         <div className={`${styles.grid} stagger`}>
-          {listings.filter(l => l.isOwner).map(l => <ListingCard key={l.id} listing={l} isOwner />)}
+          {listings.filter(l => l.isOwner).map(l => (
+            <ListingCard key={l.id} listing={l} isOwner />
+          ))}
         </div>
       )}
 
@@ -60,12 +95,20 @@ export default function Marketplace() {
         </Panel>
       )}
 
-      {listOpen && <NewListingModal onClose={() => setListOpen(false)} onAdd={addListing} crops={crops} />}
+      {listOpen && <NewListingModal onClose={() => setListOpen(false)} onAdd={addListing} crops={crops} user={user} />}
+      
+      {orderModal && (
+        <OrderConfirmationModal 
+          listing={orderModal} 
+          onClose={() => setOrderModal(null)} 
+          onConfirm={handlePlaceOrder}
+        />
+      )}
     </div>
   )
 }
 
-function ListingCard({ listing, isOwner }) {
+function ListingCard({ listing, isOwner, onOrder }) {
   const pct = Math.round((listing.qtyAvail / listing.qtyTotal) * 100)
   return (
     <div className={`${styles.card} animate-fadeUp`}>
@@ -98,11 +141,47 @@ function ListingCard({ listing, isOwner }) {
         ) : (
           <>
             <Button variant="outline" size="sm" style={{ flex: 1 }}>Contact Seller</Button>
-            <Button variant="primary" size="sm" style={{ flex: 1 }}>Place Order</Button>
+            <Button variant="primary" size="sm" style={{ flex: 1 }} onClick={onOrder}>Place Order</Button>
           </>
         )}
       </div>
     </div>
+  )
+}
+
+function OrderConfirmationModal({ listing, onClose, onConfirm }) {
+  const [qty, setQty] = useState(10)
+  const total = listing.pricePerKg * qty
+
+  return (
+    <Modal title={`Confirm Order: ${listing.crop}`} onClose={onClose}>
+      <div style={{ marginBottom: '1.5rem' }}>
+        <p>You are ordering <strong>{listing.crop}</strong> from <strong>{listing.farmer}</strong>.</p>
+        <FormGroup label="Quantity (kg)">
+          <Input 
+            type="number" 
+            value={qty} 
+            onChange={e => setQty(Math.min(listing.qtyAvail, Math.max(1, e.target.value)))} 
+            max={listing.qtyAvail}
+            min={1}
+          />
+        </FormGroup>
+        <div style={{ marginTop: '1rem', padding: '1rem', background: 'var(--surface)', borderRadius: 8 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+            <span>Price per kg:</span>
+            <span>{fmt(listing.pricePerKg)}</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 600, fontSize: '1.1rem', borderTop: '1px solid var(--border)', paddingTop: '0.5rem' }}>
+            <span>Total:</span>
+            <span style={{ color: 'var(--leaf)' }}>{fmt(total)}</span>
+          </div>
+        </div>
+      </div>
+      <div style={{ display: 'flex', gap: 10 }}>
+        <Button variant="outline" style={{ flex: 1 }} onClick={onClose}>Cancel</Button>
+        <Button variant="primary" style={{ flex: 1 }} onClick={() => onConfirm(listing, qty)}>Confirm Order</Button>
+      </div>
+    </Modal>
   )
 }
 
@@ -117,14 +196,14 @@ function StatusBadge({ status }) {
   return <span className={`${styles.status} ${styles[`status--${status}`]}`}>{labels[status] || status}</span>
 }
 
-function NewListingModal({ onClose, onAdd, crops }) {
+function NewListingModal({ onClose, onAdd, crops, user }) {
   const [form, setForm] = useState({ crop: '', qty: '', price: '', location: '', date: '', notes: '' })
 
   const handleSubmit = async () => {
     await onAdd({
       id: Date.now(),
       crop: form.crop,
-      farmer: "Kamau's Shamba", // Default to current user
+      farmer: user ? user.name : "Guest Farmer",
       location: form.location,
       pricePerKg: parseFloat(form.price),
       qtyTotal: parseFloat(form.qty),

@@ -6,6 +6,8 @@ import Crops       from './pages/Crops'
 import Finance     from './pages/Finance'
 import Marketplace from './pages/Marketplace'
 import Placeholder from './pages/Placeholder'
+import { AuthProvider } from './contexts/AuthContext'
+import { NotificationProvider } from './contexts/NotificationContext'
 
 export default function App() {
   const [isOnline, setIsOnline] = useState(navigator.onLine)
@@ -24,17 +26,21 @@ export default function App() {
   }, [])
 
   return (
-    <Layout isOnline={isOnline}>
-      <Routes>
-        <Route path="/"            element={<Dashboard />} />
-        <Route path="/crops"       element={<Crops />} />
-        <Route path="/finance"     element={<Finance />} />
-        <Route path="/marketplace" element={<Marketplace />} />
-        <Route path="/reports"     element={<Placeholder page="reports" />} />
-        <Route path="/inputs"      element={<Placeholder page="inputs" />} />
-        <Route path="/settings"    element={<Placeholder page="settings" />} />
-        <Route path="*"            element={<Navigate to="/" replace />} />
-      </Routes>
-    </Layout>
+    <AuthProvider>
+      <NotificationProvider>
+        <Layout isOnline={isOnline}>
+          <Routes>
+            <Route path="/"            element={<Dashboard />} />
+            <Route path="/crops"       element={<Crops />} />
+            <Route path="/finance"     element={<Finance />} />
+            <Route path="/marketplace" element={<Marketplace />} />
+            <Route path="/reports"     element={<Placeholder page="reports" />} />
+            <Route path="/inputs"      element={<Placeholder page="inputs" />} />
+            <Route path="/settings"    element={<Placeholder page="settings" />} />
+            <Route path="*"            element={<Navigate to="/" replace />} />
+          </Routes>
+        </Layout>
+      </NotificationProvider>
+    </AuthProvider>
   )
 }

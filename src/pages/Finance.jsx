@@ -3,6 +3,7 @@ import { fmt, fmtDate } from '../utils/data'
 import { useDerivedFinancials, useLocalData } from '../hooks'
 import { Panel, PanelHeader, Table, Badge, Button, Modal, FormGroup, Input, Select, FormRow } from '../components/UI'
 import { IconPlus } from '../components/Icons'
+import { useNotifications } from '../contexts/NotificationContext'
 import styles from './Finance.module.css'
 
 const CATEGORIES = ['Fertilizer', 'Pesticide', 'Seeds', 'Labour', 'Water / Irrigation', 'Transport', 'Equipment', 'Other']
@@ -11,8 +12,17 @@ export default function Finance() {
   const { data: transactions, add: addTx } = useLocalData('transactions')
   const { data: crops } = useLocalData('crops')
   const { totalIncome, totalExpense, netProfit, roi } = useDerivedFinancials(transactions)
+  const { addNotification } = useNotifications()
   const [saleOpen, setSaleOpen]       = useState(false)
   const [expenseOpen, setExpenseOpen] = useState(false)
+
+  const handleAddTx = async (tx) => {
+    await addTx(tx)
+    addNotification({
+      title: tx.type === 'income' ? 'Sale Recorded' : 'Expense Recorded',
+      message: `${tx.description}: ${fmt(tx.amount)}`
+    })
+  }
 
   return (
     <div className={styles.page}>
@@ -53,8 +63,8 @@ export default function Finance() {
         </Table>
       </Panel>
 
-      {saleOpen    && <RecordSaleModal    onClose={() => setSaleOpen(false)} onAdd={addTx} crops={crops} />}
-      {expenseOpen && <RecordExpenseModal onClose={() => setExpenseOpen(false)} onAdd={addTx} crops={crops} />}
+      {saleOpen    && <RecordSaleModal    onClose={() => setSaleOpen(false)} onAdd={handleAddTx} crops={crops} />}
+      {expenseOpen && <RecordExpenseModal onClose={() => setExpenseOpen(false)} onAdd={handleAddTx} crops={crops} />}
     </div>
   )
 }

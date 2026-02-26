@@ -3,12 +3,15 @@ import { STAGES, fmt, fmtDate } from '../utils/data'
 import { Tabs, Button, Badge, Panel, ProgressBar, Modal, FormGroup, Input, Select, FormRow } from '../components/UI'
 import { IconPlus } from '../components/Icons'
 import { useLocalData } from '../hooks'
+import { useNotifications } from '../contexts/NotificationContext'
 import styles from './Crops.module.css'
 
 export default function Crops() {
-  const { data: crops, add: addCrop } = useLocalData('crops')
+  const { data: crops, add: addCrop, update: updateCrop } = useLocalData('crops')
+  const { addNotification } = useNotifications()
   const [filter, setFilter] = useState('all')
   const [addOpen, setAddOpen] = useState(false)
+  const [updateModal, setUpdateModal] = useState(null)
 
   const FILTER_TABS = [
     { value: 'all',       label: 'All',       count: crops.length },
@@ -20,6 +23,26 @@ export default function Crops() {
 
   const visible = filter === 'all' ? crops : crops.filter(c => c.status === filter)
 
+  const handleAddCrop = async (newCrop) => {
+    await addCrop(newCrop)
+    addNotification({
+      title: 'Crop Added',
+      message: `${newCrop.name} has been added to your farm.`
+    })
+  }
+
+  const handleUpdateCrop = async (crop, newStage) => {
+    const stageIndex = STAGES.indexOf(newStage)
+    const updatedCrop = { ...crop, status: newStage, stageIndex }
+    await updateCrop(updatedCrop)
+    
+    addNotification({
+      title: 'Crop Updated',
+      message: `${crop.name} stage updated to ${newStage}.`
+    })
+    setUpdateModal(null)
+  }
+
   return (
     <div className={styles.page}>
       <div className={styles.toolbar}>
@@ -30,16 +53,30 @@ export default function Crops() {
       </div>
 
       <div className={`${styles.grid} stagger`}>
-        {visible.map((crop) => <CropCard key={crop.id} crop={crop} />)}
+        {visible.map((crop) => (
+          <CropCard 
+            key={crop.id} 
+            crop={crop} 
+            onUpdate={() => setUpdateModal(crop)}
+          />
+        ))}
       </div>
 
-      {addOpen && <AddCropModal onClose={() => setAddOpen(false)} onAdd={addCrop} />}
+      {addOpen && <AddCropModal onClose={() => setAddOpen(false)} onAdd={handleAddCrop} />}
+      
+      {updateModal && (
+        <UpdateStageModal 
+          crop={updateModal} 
+          onClose={() => setUpdateModal(null)} 
+          onConfirm={handleUpdateCrop} 
+        />
+      )}
     </div>
   )
 }
 
-function CropCard({ crop }) {
-  const totalInput = crop.inputs.reduce((s, i) => s + i.cost, 0)
+function CropCard({ crop, onUpdate }) {
+  const totalInput = crop.inputs ? crop.inputs.reduce((s, i) => s + i.cost, 0) : 0
 
   return (
     <div className={`${styles.card} animate-fadeUp`}>
@@ -90,17 +127,35 @@ function CropCard({ crop }) {
         )}
 
         <div className={styles.inputList}>
-          {crop.inputs.map((inp, i) => (
+          {crop.inputs && crop.inputs.map((inp, i) => (
             <span key={i} className={styles.inputTag}>{inp.type}</span>
           ))}
         </div>
 
         <div className={styles.cardActions}>
           <Button variant="outline" size="sm">View Details</Button>
-          <Button variant="primary" size="sm">Log Update</Button>
+          <Button variant="primary" size="sm" onClick={onUpdate}>Log Update</Button>
         </div>
       </div>
     </div>
+  )
+}
+
+function UpdateStageModal({ crop, onClose, onConfirm }) {
+  const [stage, setStage] = useState(crop.status)
+
+  return (
+    <Modal title={`Update Stage: ${crop.name}`} onClose={onClose}>
+      <FormGroup label="Current Stage">
+        <Select value={stage} onChange={e => setStage(e.target.value)}>
+          {STAGES.map(s => <option key={s} value={s}>{s}</option>)}
+        </Select>
+      </FormGroup>
+      <div style={{ display: 'flex', gap: 10, marginTop: '1.5rem' }}>
+        <Button variant="outline" style={{ flex: 1 }} onClick={onClose}>Cancel</Button>
+        <Button variant="primary" style={{ flex: 1 }} onClick={() => onConfirm(crop, stage)}>Update Stage</Button>
+      </div>
+    </Modal>
   )
 }
 
