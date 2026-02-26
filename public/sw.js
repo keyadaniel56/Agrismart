@@ -9,6 +9,8 @@ const STATIC_ASSETS = [
   '/apple-touch-icon.png',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
+  '/screenshot-mobile.png',
+  '/screenshot-desktop.png',
   '/src/main.jsx',
   '/src/App.jsx',
   '/src/styles/global.css',
