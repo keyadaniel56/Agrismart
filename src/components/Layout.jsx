@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import styles from './Layout.module.css'
 import {
@@ -33,18 +33,33 @@ const PAGE_TITLES = {
 export default function Layout({ children, isOnline }) {
   const { pathname } = useLocation()
   const page = PAGE_TITLES[pathname] || { title: 'AgriSmart', sub: '' }
-  const { user, login, register, logout } = useAuth()
+  const { user, login, register, logout, updateProfile } = useAuth()
   const { notifications, unreadCount, markAsRead, addNotification } = useNotifications()
 
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [authMode, setAuthMode] = useState('login') // 'login' or 'signup'
   const [showNotifModal, setShowNotifModal] = useState(false)
   const [showProfileModal, setShowProfileModal] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(false)
 
   const [authForm, setAuthForm] = useState({
     email: '', password: '', name: '', farmName: '', county: 'Kiambu'
   })
   const [authError, setAuthError] = useState('')
+
+  const [editForm, setEditForm] = useState({
+    name: '', farmName: '', county: ''
+  })
+
+  useEffect(() => {
+    if (user) {
+      setEditForm({
+        name: user.name || '',
+        farmName: user.farmName || '',
+        county: user.county || ''
+      })
+    }
+  }, [user])
 
   const handleAuth = async (e) => {
     e.preventDefault()
@@ -68,6 +83,14 @@ export default function Layout({ children, isOnline }) {
         setAuthError(res.message)
       }
     }
+  }
+
+  const handleUpdateProfile = async (e) => {
+    e.preventDefault()
+    const initials = editForm.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+    await updateProfile({ ...editForm, initials })
+    setShowEditModal(false)
+    addNotification({ title: 'Profile Updated', message: 'Your profile changes have been saved.' })
   }
 
   const mainNav    = NAV.filter(n => !n.section)
@@ -262,13 +285,45 @@ export default function Layout({ children, isOnline }) {
             <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--clay)' }}>{user.county || 'Kiambu'}, Kenya</p>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            <Button variant="secondary" onClick={() => setShowProfileModal(false)}>
+            <Button variant="secondary" onClick={() => { setShowProfileModal(false); setShowEditModal(true); }}>
               <IconUser size={16} style={{ marginRight: 8 }} /> Edit Profile
             </Button>
             <Button variant="secondary" onClick={() => { logout(); setShowProfileModal(false); }} style={{ color: 'var(--danger)' }}>
               <IconLogOut size={16} style={{ marginRight: 8 }} /> Logout
             </Button>
           </div>
+        </Modal>
+      )}
+
+      {showEditModal && user && (
+        <Modal title="Edit Profile" onClose={() => setShowEditModal(false)}>
+          <form onSubmit={handleUpdateProfile}>
+            <FormGroup label="Full Name">
+              <Input 
+                placeholder="John Doe" required 
+                value={editForm.name}
+                onChange={(e) => setEditForm({...editForm, name: e.target.value})}
+              />
+            </FormGroup>
+            <FormGroup label="Farm Name">
+              <Input 
+                placeholder="Green Valley" 
+                value={editForm.farmName}
+                onChange={(e) => setEditForm({...editForm, farmName: e.target.value})}
+              />
+            </FormGroup>
+            <FormGroup label="County">
+              <Input 
+                placeholder="Kiambu" 
+                value={editForm.county}
+                onChange={(e) => setEditForm({...editForm, county: e.target.value})}
+              />
+            </FormGroup>
+            <div style={{ display: 'flex', gap: 10, marginTop: '1rem' }}>
+              <Button variant="outline" style={{ flex: 1 }} onClick={() => setShowEditModal(false)}>Cancel</Button>
+              <Button type="submit" style={{ flex: 1 }}>Save Changes</Button>
+            </div>
+          </form>
         </Modal>
       )}
 
