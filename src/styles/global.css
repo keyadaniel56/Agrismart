@@ -1,0 +1,96 @@
+/* ─── TOKENS ──────────────────────────────────────────── */
+:root {
+  --canopy:    #1a3a1a;
+  --forest:    #2d5a2d;
+  --leaf:      #4a8c4a;
+  --lime:      #7ab648;
+  --sand:      #c8a96e;
+  --harvest:   #b8860b;
+  --soil:      #3d2b1f;
+  --clay:      #7a5c44;
+  --parchment: #f4f1ec;
+  --cream:     #faf8f4;
+  --white:     #ffffff;
+  --mist:      #eceae5;
+  --line:      rgba(61,43,31,0.1);
+  --line-strong: rgba(61,43,31,0.18);
+  --red:       #b91c1c;
+  --blue:      #1d4ed8;
+
+  --font-display: 'DM Serif Display', Georgia, serif;
+  --font-body:    'DM Sans', system-ui, sans-serif;
+
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-xl: 24px;
+
+  --shadow-sm: 0 1px 4px rgba(61,43,31,0.08);
+  --shadow-md: 0 4px 16px rgba(61,43,31,0.1);
+  --shadow-lg: 0 12px 40px rgba(61,43,31,0.14);
+
+  --transition: 0.2s cubic-bezier(0.4,0,0.2,1);
+}
+
+/* ─── RESET ───────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 16px; -webkit-font-smoothing: antialiased; }
+
+@media (max-width: 480px) {
+  html { font-size: 15px; }
+}
+
+body {
+  font-family: var(--font-body);
+  background: var(--parchment);
+  color: var(--soil);
+  line-height: 1.5;
+  -webkit-tap-highlight-color: transparent;
+}
+button { font-family: inherit; cursor: pointer; border: none; background: none; }
+input, select, textarea { font-family: inherit; }
+@media (max-width: 768px) {
+  input, select, textarea { font-size: 16px; } /* Prevent auto-zoom on iOS */
+}
+a { color: inherit; text-decoration: none; }
+img { display: block; max-width: 100%; }
+
+/* ─── SCROLLBAR ───────────────────────────────────────── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(61,43,31,0.2); border-radius: 99px; }
+
+/* ─── UTILITIES ───────────────────────────────────────── */
+.sr-only {
+  position: absolute; width: 1px; height: 1px;
+  padding: 0; overflow: hidden; clip: rect(0,0,0,0);
+  white-space: nowrap; border: 0;
+}
+
+/* ─── ANIMATIONS ──────────────────────────────────────── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.45; }
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.animate-fadeUp { animation: fadeUp 0.35s var(--transition) both; }
+.animate-fadeIn { animation: fadeIn 0.25s ease both; }
+
+/* staggered children */
+.stagger > *:nth-child(1) { animation-delay: 0ms; }
+.stagger > *:nth-child(2) { animation-delay: 60ms; }
+.stagger > *:nth-child(3) { animation-delay: 120ms; }
+.stagger > *:nth-child(4) { animation-delay: 180ms; }
+.stagger > *:nth-child(5) { animation-delay: 240ms; }
+.stagger > *:nth-child(6) { animation-delay: 300ms; }
