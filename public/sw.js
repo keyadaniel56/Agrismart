@@ -1,36 +1,31 @@
-const CACHE_NAME = 'agrismart-v3';
+const CACHE_NAME = 'agrismart-v4';
 const OFFLINE_URL = '/index.html';
 
-const STATIC_ASSETS = [
+// Assets that are essential for the app to start
+const APP_SHELL = [
   '/',
   '/index.html',
   '/manifest.json',
   '/icon.svg',
   '/apple-touch-icon.png',
-  '/icons/icon-192.png',
-  '/icons/icon-512.png',
-  '/icons/maskable-192.png',
-  '/icons/maskable-512.png',
-  '/screenshot-mobile.png',
-  '/screenshot-desktop.png',
   '/src/main.jsx',
-  '/src/App.jsx',
-  '/src/styles/global.css',
-  '/@vite/client',
+  '/@vite/client', // For development
 ];
 
-// Install: Cache the shell
+// Install: Cache the app shell
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       console.log('[SW] Pre-caching app shell');
-      return cache.addAll(STATIC_ASSETS);
+      return cache.addAll(APP_SHELL).catch(err => {
+        console.warn('[SW] Pre-cache failed (some assets may be dynamic):', err);
+      });
     })
   );
   self.skipWaiting();
 });
 
-// Activate: Clean up and claim
+// Activate: Clean up old caches
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
@@ -40,41 +35,49 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Fetch: Smart Caching
+// Fetch Strategy
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
 
   const url = new URL(event.request.url);
 
-  // Handle Navigation Requests (SPAs)
-  // This ensures that even if you refresh on /crops, it serves index.html
+  // 1. Navigation Requests: Network-first, fallback to /index.html (Offline Support)
   if (event.request.mode === 'navigate') {
     event.respondWith(
-      fetch(event.request).catch(() => {
-        return caches.match(OFFLINE_URL);
-      })
+      fetch(event.request)
+        .then(async (networkResponse) => {
+          // Cache the latest version of index.html
+          const cache = await caches.open(CACHE_NAME);
+          cache.put(OFFLINE_URL, networkResponse.clone());
+          return networkResponse;
+        })
+        .catch(async () => {
+          // If network fails, serve index.html from cache
+          const cachedResponse = await caches.match(OFFLINE_URL);
+          if (cachedResponse) return cachedResponse;
+          
+          // Absolute fallback if everything fails
+          return caches.match('/');
+        })
     );
     return;
   }
 
-  // Handle Assets
+  // 2. Static Assets & App Logic: Stale-While-Revalidate
+  // This serves from cache immediately for speed, but updates in background
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
-      if (cachedResponse) return cachedResponse;
-
-      return fetch(event.request).then((networkResponse) => {
-        // Cache new assets on the fly
-        if (networkResponse.status === 200 && url.origin === location.origin) {
-          const responseToCache = networkResponse.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseToCache);
-          });
+      const fetchPromise = fetch(event.request).then(async (networkResponse) => {
+        if (networkResponse.status === 200 && (url.origin === location.origin || url.hostname.includes('fonts'))) {
+          const cache = await caches.open(CACHE_NAME);
+          cache.put(event.request, networkResponse.clone());
         }
         return networkResponse;
       }).catch(() => {
-        // Fallback for images or other assets if needed
-        return null;
+        // Silently fail if offline and not in cache
       });
+
+      return cachedResponse || fetchPromise;
     })
   );
 });
